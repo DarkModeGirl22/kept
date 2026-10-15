@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}: add{% endblock %}
+{% block content %}
+<h1>{{ 'Add a letter from the state' if letter else 'Add your work' }}</h1>
+
+<form method="post" action="{{ url_for('add_photo') }}" enctype="multipart/form-data" id="photoform">
+  {% if preset %}<input type="hidden" name="activity_id" value="{{ preset }}">{% endif %}
+  <label class="check"><input type="checkbox" name="is_letter" value="1" {% if letter %}checked{% endif %}> This is a letter from the state</label>
+  <div class="capture">
+    <label class="tile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>
+      Take a photo
+      <input type="file" name="photo_cam" accept="image/*" capture="environment" onchange="this.form.submit()">
+    </label>
+    <label class="tile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      Upload a photo or PDF
+      <input type="file" name="photo_file" accept="image/*,application/pdf" onchange="this.form.submit()">
+    </label>
+  </div>
+  <p class="field-note">Pay stubs, app earnings screens, signed volunteer pages, school schedules. Kept reads the dates, hours and pay, and you check them before anything counts.
+    {% if not ocr_ok %}<br><strong>Photo reading is off on this computer</strong> (Tesseract isn't installed), so you'll type the numbers yourself after the photo is saved.{% endif %}</p>
+  <noscript><button class="btn">Send the photo</button></noscript>
+</form>
+
+{% if not letter %}
+<h2>Or type it in one line</h2>
+<form method="post" action="{{ url_for('add_text') }}">
+  <label for="text" class="muted small" style="font-weight:400">For example: <em>Dashly 3-8pm $85</em>, <em>4h pantry today</em>, <em>class 2h30 yesterday</em></label>
+  <input type="text" id="text" name="text" autocomplete="off" required>
+  <div class="btnrow"><button class="btn">Read it</button></div>
+</form>
+
+<details class="panel">
+  <summary><strong>Fill in a form instead</strong></summary>
+  <form method="post" action="{{ url_for('add_manual') }}">
+    <label for="m_act">Activity</label>
+    <select id="m_act" name="activity_id" required>
+      {% for a in acts %}<option value="{{ a.id }}" {% if preset == a.id %}selected{% endif %}>{{ a.name }} ({{ activity_labels[a.type] }})</option>{% endfor %}
+    </select>
+    <div class="field-row">
+      <div><label for="m_start">Date</label><input type="date" id="m_start" name="start" value="{{ today.isoformat() }}" max="{{ today.isoformat() }}" required></div>
+      <div><label for="m_end">Until (optional)</label><input type="date" id="m_end" name="end" max="{{ today.isoformat() }}"></div>
+    </div>
+    <div class="field-row">
+      <div><label for="m_h">Hours</label><input type="number" step="0.25" min="0" id="m_h" name="hours" inputmode="decimal"></div>
+      <div><label for="m_i">Pay ($)</label><input type="number" step="0.01" min="0" id="m_i" name="income" inputmode="decimal"></div>
+    </div>
+    <div class="btnrow"><button class="btn">Save</button></div>
+  </form>
+</details>
+{% endif %}
+
+{% if is_demo %}
+<p class="small muted">Demo: no files on this phone? <a href="{{ url_for('demo_page') }}#samples">Use a sample document</a>.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import readby, conf_tag with context %}
+{% block title %}: check the photo{% endblock %}
+{% block content %}
+<h1>Check what Kept read</h1>
+{% if doc.status == 'confirmed' %}<div class="flash">This photo is already saved as proof.</div>{% endif %}
+<p class="muted">{{ readby(doc.read_by if ocr_ok else 'manual') }}
+  {% if doc.kind and doc.kind != 'other' %}<span class="badge">Looks like: {{ {'paystub': 'a pay stub', 'gig': 'app earnings', 'volunteer': 'a volunteer sheet', 'school': 'a school document', 'letter': 'a letter'}[doc.kind] }}</span>{% endif %}</p>
+
+{% if doc.filename.endswith('.pdf') %}
+  <p><a href="{{ url_for('file', doc_id=doc.id) }}" target="_blank">Open the PDF</a></p>
+{% else %}
+  <img class="docimg" src="{{ url_for('file', doc_id=doc.id) }}" alt="Your photo">
+{% endif %}
+{% if not ocr_ok %}<p class="small muted">Kept couldn't read text from this file, so please type the values from it.</p>{% endif %}
+
+<form method="post" class="panel">
+  <label for="a">Which activity? {{ conf_tag(conf.get('activity_id'), ask_below) }}</label>
+  <select id="a" name="activity_id" required class="{{ 'needs' if (conf.get('activity_id') or 0) < ask_below }}">
+    {% if not f.get('activity_id') %}<option value="">Choose…</option>{% endif %}
+    {% for a in acts %}<option value="{{ a.id }}" {% if a.id == f.get('activity_id') %}selected{% endif %}>{{ a.name }} ({{ activity_labels[a.type] }})</option>{% endfor %}
+  </select>
+  <div class="field-row">
+    <div><label for="s">From {{ conf_tag(conf.get('period_start'), ask_below) }}</label>
+      <input type="date" id="s" name="start" value="{{ f.get('period_start') or '' }}" max="{{ today.isoformat() }}" required class="{{ 'needs' if (conf.get('period_start') or 0) < ask_below }}"></div>
+    <div><label for="e">To {{ conf_tag(conf.get('period_end'), ask_below) }}</label>
+      <input type="date" id="e" name="end" value="{{ f.get('period_end') or '' }}" max="{{ today.isoformat() }}" class="{{ 'needs' if (conf.get('period_end') or 0) < ask_below }}"></div>
+  </div>
+  <div class="field-row">
+    <div><label for="h">Hours {{ conf_tag(conf.get('hours'), ask_below) }}</label>
+      <input type="number" step="0.01" min="0" id="h" name="hours" value="{{ f.get('hours') if f.get('hours') is not none }}" class="{{ 'needs' if (conf.get('hours') or 0) < ask_below }}" inputmode="decimal"></div>
+    <div><label for="i">Pay before taxes ($) {{ conf_tag(conf.get('income'), ask_below) if doc.kind != 'volunteer' }}</label>
+      <input type="number" step="0.01" min="0" id="i" name="income" value="{{ f.get('income') if f.get('income') is not none }}" inputmode="decimal"></div>
+  </div>
+  <p class="field-note">Yellow boxes are the ones Kept wasn't sure about. If the photo doesn't show hours, leave Hours empty: for paid work, pay can count instead. Dates across two months are split between them automatically.</p>
+  <div class="btnrow">
+    <button class="btn" name="action" value="save">Save as proof</button>
+    <button class="btn secondary" name="action" value="reject" formnovalidate>Not a work document</button>
+  </div>
+</form>
+{% endblock %}

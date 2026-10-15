@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_macros.html" import timecard with context %}
+{% block title %}: my month{% endblock %}
+{% macro alertcard(a) %}
+<article class="alert {{ 'urgent' if a.urgent }} {{ a.kind }}">
+  <h3>{{ a.title }}</h3>
+  <p class="small mt0">{{ a.body }}</p>
+  <div class="acts">
+    <a class="btn small" href="{{ a.action_url }}">{{ a.action_label }}</a>
+    <form method="post" action="{{ url_for('alert_dismiss', aid=a.id) }}"><button class="linkbtn small">Got it</button></form>
+  </div>
+</article>
+{% endmacro %}
+{% block content %}
+<h1>Hi {{ person.name }}</h1>
+
+{% if alerts %}{{ alertcard(alerts[0]) }}{% endif %}
+
+{{ timecard(s, cells, month) }}
+
+{% for a in alerts[1:] %}{{ alertcard(a) }}{% endfor %}
+
+<div class="btnrow">
+  <a class="btn" href="{{ url_for('add') }}">Add today's work</a>
+  <a class="btn secondary" href="{{ url_for('calendar_page') }}">See the days</a>
+</div>
+
+{% if check %}
+<section class="panel">
+  <h2 class="mt0">Next state check</h2>
+  <p><strong>{{ check.strftime('%B') }} {{ check.day }}, {{ check.year }}</strong>, in {{ check_left }} days.
+    The state will look at {% for m in months %}<a href="{{ url_for('folder_month', month=m) }}">{{ E.month_label(m) }}</a>{{ ', ' if not loop.last }}{% endfor %}.</p>
+  <p class="small muted mt0">It looks at the months just before the check, never a random one. Kept keeps every month ready.</p>
+</section>
+{% endif %}
+
+{% if recent %}
+<h2>Recently logged</h2>
+<ul class="rows">
+  {% for r in recent %}
+  <li>
+    <div class="grow">
+      <strong>{{ r.name }}</strong>
+      <div class="small muted">{{ r.start_date|dshort }}{% if r.end_date != r.start_date %} to {{ r.end_date|dshort }}{% endif %}:
+        {% if r.hours %}{{ fmt_h(r.hours) }}h{% endif %}{% if r.income %} ${{ '%.2f' % r.income }}{% endif %}</div>
+    </div>
+    {% if proven(r) %}<span class="pill met">Proof</span>{% else %}<span class="pill upcoming">No proof yet</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+<p class="small muted">Mode: {{ {'full': 'full tracking', 'exempt': 'exemption', 'student': 'student', 'seasonal': 'seasonal', 'payroll': 'light'}[mode] }}. <a href="{{ url_for('agent_page') }}">What Kept checked today</a></p>
+{% endblock %}
