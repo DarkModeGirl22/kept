@@ -1,11 +1,12 @@
 # Kept
 
+*Medicaid is the public health insurance for people with low incomes in the United States. Kept is built for the US rule that starts in 2027.*
+
 **People don't lose Medicaid because they don't work. They lose it because they can't prove it.**
 
 From January 1, 2027, adults aged 19 to 64 covered by Medicaid expansion must show, every month, 80 hours of work, volunteering, job training or school, or at least $580 of pay. The state checks when you apply and at every renewal (every 6 months), looking back at the months just before. If its own data can't confirm your hours, it sends a letter and you have 30 days to send proof.
 
 Kept is an agent that keeps that proof for you, day by day, warns you while a month can still be fixed, and has everything ready when the state asks.
-
 ## Why
 
 - **About 18.5 million people** will be subject to the rule each year (CBO, cited by KFF).
