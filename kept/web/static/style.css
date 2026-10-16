@@ -217,3 +217,48 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
 @media (min-width: 700px) {
   body { font-size: 18px; }
 }
+
+.actions { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
+.actions form { margin: 0; }
+.actions .linkbtn { min-height: 32px; padding: 4px 0; }
+
+/* ---------------------------------------------------------------- laptop */
+.topnav { display: none; }
+.home-grid { display: flex; flex-direction: column; }
+.home-grid .g-alerts { order: 0; }
+.home-grid .g-main { order: 1; }
+.home-grid .g-side { order: 2; }
+
+@media (min-width: 960px) {
+  .wrap { max-width: 1120px; padding-bottom: 48px; }
+  .tabs { display: none; }
+  .top { gap: 24px; }
+  .topnav { display: block; flex: 1; }
+  .topnav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; }
+  .topnav a { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px;
+              color: var(--muted); text-decoration: none; font-size: 16px; }
+  .topnav a svg { width: 20px; height: 20px; }
+  .topnav a:hover { background: var(--surface); color: var(--ink); }
+  .topnav a[aria-current="page"] { color: var(--pine-dark); background: var(--pine-tint); font-weight: 700; }
+  .topnav a.add-tab { background: var(--pine); color: #fff; font-weight: 700; }
+  .topnav a.add-tab:hover { background: var(--pine-dark); color: #fff; }
+  .topnav a.add-tab[aria-current="page"] { background: var(--pine-dark); color: #fff; }
+
+  /* most pages: a comfortable reading column */
+  main { max-width: 760px; margin: 0 auto; }
+  main.wide { max-width: none; }
+
+  /* home: the month on the left, what needs her on the right */
+  .home-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 32px;
+               grid-template-areas: "main alerts" "main side"; align-items: start; }
+  .home-grid .g-main { grid-area: main; }
+  .home-grid .g-alerts { grid-area: alerts; }
+  .home-grid .g-side { grid-area: side; }
+  .home-grid .g-side h2:first-child, .home-grid .g-side .panel:first-child { margin-top: 0; }
+
+  /* calendar: the month on the left, the chosen day on the right */
+  .cal-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .cal-grid .day-panel h2:first-child { margin-top: 0; }
+  .cal td { height: 76px; }
+}
+.rows + .btn, .rows + a.btn { margin-top: 12px; }

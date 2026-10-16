@@ -1,4 +1,4 @@
-# Kept in a container (used for the public demo link). Free and keyless: Tesseract
+# Kept in a container (used for the public demo link, e.g. on Render's free plan). Free and keyless: Tesseract
 # reads photos; the optional AI helper (Ollama) is not included online.
 FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr && rm -rf /var/lib/apt/lists/*
@@ -9,5 +9,6 @@ WORKDIR /home/user/app
 COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt gunicorn
 COPY --chown=user . .
-EXPOSE 7860
-CMD ["gunicorn", "-w", "1", "--threads", "8", "-b", "0.0.0.0:7860", "wsgi:app"]
+EXPOSE 10000
+# Hosting services give the port in $PORT (Render uses 10000).
+CMD gunicorn -w 1 --threads 8 --timeout 120 -b 0.0.0.0:${PORT:-10000} wsgi:app

@@ -91,6 +91,31 @@ def is_proven(conn, entry_row) -> bool:
     return bool(s and s["status"] == "signed")
 
 
+def proof_document(conn, entry_row):
+    """The document that proves an entry (its own photo, or the month's signed volunteer
+    page), or None."""
+    if entry_row["document_id"]:
+        d = conn.execute("SELECT * FROM document WHERE id=? AND status='confirmed'", (entry_row["document_id"],)).fetchone()
+        if d:
+            return d
+    s = conn.execute("SELECT document_id FROM signoff WHERE person_id=? AND activity_id=? AND month=? AND status='signed'",
+                     (entry_row["person_id"], entry_row["activity_id"], entry_row["start_date"][:7])).fetchone()
+    if s and s["document_id"]:
+        return conn.execute("SELECT * FROM document WHERE id=?", (s["document_id"],)).fetchone()
+    return None
+
+
+def unproven_entries(conn, pid, activity_id, today, month: str | None = None):
+    q = ("SELECT e.*, a.name, a.type FROM entry e JOIN activity a ON a.id=e.activity_id WHERE e.person_id=? "
+         "AND e.activity_id=? AND e.superseded_by IS NULL AND e.start_date<=?")
+    args = [pid, activity_id, today.isoformat()]
+    if month:
+        q += " AND substr(e.start_date,1,7)<=? AND substr(e.end_date,1,7)>=?"
+        args += [month, month]
+    rows = conn.execute(q + " ORDER BY e.start_date, e.id", args).fetchall()
+    return [r for r in rows if not is_proven(conn, r)]
+
+
 def mode(ctx: Context) -> str:
     """How the agent treats this person. Different people, different behaviour."""
     if any(r.meets for r in E.evaluate_exemptions(ctx.answers, ctx.today, ctx.rules)):
@@ -187,7 +212,8 @@ def analyse_document(conn, doc_id, ctx: Context, force_kind: str | None = None) 
 
 
 def confirm_document(conn, pid, doc_id, activity_id, start: date, end: date, hours, income) -> dict:
-    """She checked the values. Save them as one entry carrying the document as proof."""
+    """She checked the values. Save them as one entry carrying the document as proof.
+    If the photo was added for a job she had typed, that typed line is replaced by it."""
     act = conn.execute("SELECT * FROM activity WHERE id=?", (activity_id,)).fetchone()
     if act["type"] not in INCOME_TYPES:
         income = None
@@ -197,6 +223,14 @@ def confirm_document(conn, pid, doc_id, activity_id, start: date, end: date, hou
     conn.execute("UPDATE document SET status='confirmed', activity_id=? WHERE id=?", (activity_id, doc_id))
     conn.commit()
     replaced = supersede_with_statement(conn, pid, activity_id, start, end, eid)
+    target = conn.execute("SELECT for_entry FROM document WHERE id=?", (doc_id,)).fetchone()["for_entry"]
+    if target and target != eid:
+        t = conn.execute("SELECT * FROM entry WHERE id=? AND person_id=? AND superseded_by IS NULL AND document_id IS NULL",
+                         (target, pid)).fetchone()
+        if t:
+            conn.execute("UPDATE entry SET superseded_by=? WHERE id=?", (eid, target))
+            conn.commit()
+            replaced = list(replaced) + [t]
     if act["type"] == "volunteer":
         # a signed volunteer sheet is the month's proof
         m = start.replace(day=1)

@@ -29,7 +29,7 @@
       </div>
     {% endif %}
   {% elif x.proven < x.n %}
-    <a class="btn secondary small" href="{{ url_for('add', activity=x.a.id) }}">Add proof</a>
+    <a class="btn secondary small" href="{{ url_for('proof_activity', aid=x.a.id, month=month) }}">Add proof</a>
   {% endif %}
 </section>
 {% endfor %}

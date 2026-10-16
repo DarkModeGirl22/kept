@@ -107,7 +107,8 @@ def create_app(conn=None) -> Flask:
         return dict(today=g.get("today"), person=g.get("person"), is_demo=g.get("demo"), public=app.config["PUBLIC"],
                     E=E, fmt_h=watchdog.fmt_h, fmt_d=watchdog.fmt_d, ai_on=llm.available(),
                     ai_enabled=llm.is_enabled(), WEEKDAYS=WEEKDAYS, TYPE_OPTIONS=TYPE_OPTIONS,
-                    activity_labels=E.ACTIVITY_LABELS, nav=request.endpoint)
+                    activity_labels=E.ACTIVITY_LABELS, nav=request.endpoint,
+                    proof_doc=lambda row: S.proof_document(g.conn, row) if g.get("conn") else None)
 
     def need_person():
         if not g.person:
@@ -329,9 +330,10 @@ def create_app(conn=None) -> Flask:
             path = Path(tmp.name)
         return _process_upload(path, secure_filename(file.filename) or "photo.jpg",
                                is_letter=bool(request.form.get("is_letter")),
-                               activity_id=request.form.get("activity_id", type=int))
+                               activity_id=request.form.get("activity_id", type=int),
+                               for_entry=request.form.get("entry_id", type=int))
 
-    def _process_upload(path: Path, name: str, is_letter=False, activity_id=None):
+    def _process_upload(path: Path, name: str, is_letter=False, activity_id=None, for_entry=None):
         doc_id, err = S.store_upload(g.conn, g.person["id"], path, name)
         if err == "duplicate":
             flash("You already added this exact photo. It's counted once.")
@@ -346,9 +348,14 @@ def create_app(conn=None) -> Flask:
             after_change()
             return redirect(url_for("letter_page", lid=lid))
         S.analyse_document(g.conn, doc_id, c)
+        if for_entry:
+            e = g.conn.execute("SELECT * FROM entry WHERE id=? AND person_id=?", (for_entry, g.person["id"])).fetchone()
+            if e:
+                activity_id = e["activity_id"]
+                g.conn.execute("UPDATE document SET for_entry=? WHERE id=?", (for_entry, doc_id))
         if activity_id:
             g.conn.execute("UPDATE document SET activity_id=? WHERE id=?", (activity_id, doc_id))
-            g.conn.commit()
+        g.conn.commit()
         return redirect(url_for("review_doc", doc_id=doc_id))
 
     @app.get("/review/<int:doc_id>")
@@ -358,10 +365,42 @@ def create_app(conn=None) -> Flask:
             abort(404)
         fields = json.loads(doc["fields"] or "{}")
         conf = json.loads(doc["confidences"] or "{}")
-        if doc["activity_id"] and not fields.get("activity_id"):
+        if doc["activity_id"]:
             fields["activity_id"], conf["activity_id"] = doc["activity_id"], 1.0
+        target = None
+        typed_from, diffs = set(), []
+        if doc["for_entry"]:
+            target = g.conn.execute("SELECT e.*, a.name, a.type FROM entry e JOIN activity a ON a.id=e.activity_id "
+                                    "WHERE e.id=? AND e.person_id=?", (doc["for_entry"], g.person["id"])).fetchone()
+        if target and doc["status"] != "confirmed":
+            typed = {"period_start": target["start_date"], "period_end": target["end_date"],
+                     "hours": target["hours"], "income": target["income"]}
+            names = {"period_start": "start date", "period_end": "end date", "hours": "hours", "income": "pay"}
+            def show(k, v):
+                if k in ("period_start", "period_end"):
+                    return watchdog.fmt_d(date.fromisoformat(v))
+                return f"${float(v):,.2f}" if k == "income" else f"{watchdog.fmt_h(float(v))}h"
+            multi_day = bool(fields.get("period_start") and fields.get("period_end")
+                             and fields["period_start"] != fields["period_end"])
+            for k, v in typed.items():
+                if v is None:
+                    continue
+                read = fields.get(k)
+                if read in (None, ""):
+                    fields[k] = v          # the photo doesn't show it: use what she typed
+                    typed_from.add(k)
+                    continue
+                if k in ("period_start", "period_end"):
+                    covers = multi_day and fields["period_start"] <= target["start_date"] \
+                        and target["end_date"] <= fields["period_end"]
+                    if read != v and not covers:
+                        diffs.append(dict(field=names[k], photo=show(k, read), typed=show(k, v)))
+                elif not multi_day and abs(float(read) - float(v)) >= 0.01:
+                    # a weekly total can't be compared with one day; a single day can
+                    diffs.append(dict(field=names[k], photo=show(k, read), typed=show(k, v)))
         return render_template("review_doc.html", doc=doc, f=fields, conf=conf, ask_below=X.ASK_BELOW,
-                               acts=db.activities(g.conn, g.person["id"]), ocr_ok=bool(doc["ocr_ok"]))
+                               acts=db.activities(g.conn, g.person["id"]), ocr_ok=bool(doc["ocr_ok"]),
+                               target=target, typed_from=typed_from, diffs=diffs)
 
     @app.post("/review/<int:doc_id>")
     def review_doc_save(doc_id):
@@ -398,7 +437,51 @@ def create_app(conn=None) -> Flask:
         doc = g.conn.execute("SELECT * FROM document WHERE id=? AND person_id=?", (doc_id, g.person["id"])).fetchone()
         if not doc:
             abort(404)
-        return send_file(db.UPLOAD_DIR / doc["filename"])
+        path = db.UPLOAD_DIR / doc["filename"]
+        if request.args.get("dl"):
+            when = ""
+            e = g.conn.execute("SELECT start_date FROM entry WHERE document_id=? ORDER BY start_date LIMIT 1", (doc_id,)).fetchone()
+            if e:
+                when = "-" + e["start_date"]
+            act = g.conn.execute("SELECT name FROM activity WHERE id=?", (doc["activity_id"],)).fetchone() if doc["activity_id"] else None
+            base = secure_filename(f"proof-{act['name'] if act else doc['kind'] or 'document'}{when}") or "proof"
+            return send_file(path, as_attachment=True, download_name=base + path.suffix)
+        return send_file(path)
+
+    # ------------------------------------------------------------ add proof to typed work
+
+    @app.get("/proof/activity/<int:aid>")
+    def proof_activity(aid):
+        r = need_person()
+        if r:
+            return r
+        act = g.conn.execute("SELECT * FROM activity WHERE id=? AND person_id=?", (aid, g.person["id"])).fetchone()
+        if not act:
+            abort(404)
+        month = request.args.get("month")
+        rows = S.unproven_entries(g.conn, g.person["id"], aid, g.today, month)
+        if len(rows) == 1:
+            return redirect(url_for("proof_entry", eid=rows[0]["id"]))
+        rules = E.load_rules(g.person["state"])
+        return render_template("proof_list.html", act=act, rows=rows, month=month,
+                               need=rules["proof_by_activity"].get(act["type"], ""))
+
+    @app.get("/proof/entry/<int:eid>")
+    def proof_entry(eid):
+        r = need_person()
+        if r:
+            return r
+        e = g.conn.execute("SELECT e.*, a.name, a.type FROM entry e JOIN activity a ON a.id=e.activity_id "
+                           "WHERE e.id=? AND e.person_id=?", (eid, g.person["id"])).fetchone()
+        if not e:
+            abort(404)
+        if e["superseded_by"]:
+            return redirect(url_for("calendar_page", month=e["start_date"][:7], day=int(e["start_date"][8:])) + "#day")
+        doc = S.proof_document(g.conn, e)
+        rules = E.load_rules(g.person["state"])
+        return render_template("proof_entry.html", e=e, doc=doc, ocr_ok=ocr.available(),
+                               need=rules["proof_by_activity"].get(e["type"], ""),
+                               others=len(S.unproven_entries(g.conn, g.person["id"], e["activity_id"], g.today)) - 1)
 
     @app.post("/entry/<int:eid>/delete")
     def entry_delete(eid):
@@ -407,7 +490,8 @@ def create_app(conn=None) -> Flask:
         g.conn.commit()
         after_change()
         flash("Removed.")
-        return redirect(request.referrer or url_for("calendar_page"))
+        nxt = request.form.get("next") or request.referrer or url_for("calendar_page")
+        return redirect(nxt)
 
     # ------------------------------------------------------------ calendar
 

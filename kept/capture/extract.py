@@ -130,8 +130,12 @@ def rule_fields(kind: str, text: str, today: date) -> tuple[dict, dict]:
             put("period_start", a, UNLABELED)
             put("period_end", b, UNLABELED)
     if "period_start" not in fields and len(dates) == 1:
-        put("period_start", dates[0][0], UNLABELED)
-        put("period_end", dates[0][0], UNLABELED)
+        # one date for the whole document; a "Date:" label on its line makes it clear
+        line = next((ln for ln in text.splitlines() if find_dates(ln, today.year)), "")
+        c = LABELED if re.match(r"\s*(date|day|shift date)\b", line, re.I) or len(text.splitlines()) < 40 and \
+            re.search(r"\b(date|summary|record|sign-in)\b", text, re.I) else UNLABELED
+        put("period_start", dates[0][0], c)
+        put("period_end", dates[0][0], c)
 
     hour_labels = [r"total\s+hours", r"hours\s+worked", r"active\s+time", r"online\s+time", r"time\s+worked",
                    r"hours\s+served", r"regular\s+hours", r"\bhours\b"]
@@ -181,7 +185,7 @@ def extract(text: str, today: date, activities: list[dict]) -> dict:
     read_by = "rules"
 
     wanted = ["period_start", "period_end", "hours", "income"]
-    if kind == "volunteer":
+    if kind in ("volunteer", "school"):
         wanted = ["period_start", "period_end", "hours"]
     gaps = [k for k in wanted if conf.get(k, 0) < ASK_BELOW]
     if gaps and kind != "letter" and llm.available():

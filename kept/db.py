@@ -127,7 +127,16 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn):
+    """Add columns that older databases don't have yet."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(document)")}
+    if "for_entry" not in cols:  # the typed job this photo was added to prove
+        conn.execute("ALTER TABLE document ADD COLUMN for_entry INTEGER")
+        conn.commit()
 
 
 def now_iso() -> str:

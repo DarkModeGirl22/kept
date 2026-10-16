@@ -1,5 +1,9 @@
 # Kept
 
+*Medicaid is the public health insurance for people with low incomes in the United States. Kept is built for the US rule that starts in 2027, and for the people it hits hardest: low-income workers whose hours change from week to week, like delivery drivers, cash jobs, volunteers and people with several small jobs.*
+
+**Try it online:** https://kept-hlcc.onrender.com (open Keisha's demo). It runs on a free server, so the first load can take up to a minute if nobody has visited recently.
+
 **People don't lose Medicaid because they don't work. They lose it because they can't prove it.**
 
 From January 1, 2027, adults aged 19 to 64 covered by Medicaid expansion must show, every month, 80 hours of work, volunteering, job training or school, or at least $580 of pay. The state checks when you apply and at every renewal (every 6 months), looking back at the months just before. If its own data can't confirm your hours, it sends a letter and you have 30 days to send proof.
@@ -76,7 +80,7 @@ The sample documents in `samples/` are fictional and marked SAMPLE.
 
 ## Tests
 
-`python -m unittest discover tests` runs 73 tests: the rules (thresholds, income path, seasonal average, pay periods across months, duplicates, months checked, deadlines, exemptions), reading (text, photos with Tesseract, letters, the AI's answers being checked), the agent (the whole demo story, weekly limits, modes) and every screen.
+`python -m unittest discover tests` runs 76 tests: the rules (thresholds, income path, seasonal average, pay periods across months, duplicates, months checked, deadlines, exemptions), reading (text, photos with Tesseract, letters, the AI's answers being checked), the agent (the whole demo story, weekly limits, modes) and every screen.
 
 ## What's live and what's planned
 
@@ -94,7 +98,7 @@ kept/services.py          saving entries and documents, proof, sign-offs
 kept/pdfs.py              printable reporting log, volunteer page, proof packet
 kept/web/                 the app (Flask) and its screens
 kept/demo.py              Keisha's month
-tests/                    73 tests
+tests/                    76 tests
 ```
 
 ## Sources

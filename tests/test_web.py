@@ -105,6 +105,58 @@ class Web(unittest.TestCase):
         self.assertIn("Not found, please fill in", html)
         self.assertIn("type the values", html)
 
+    def test_5c_add_proof_to_a_typed_job(self):
+        self.c.post("/demo/start")
+        pid = self.conn.execute("SELECT value FROM settings WHERE key='active_person'").fetchone()["value"]
+        dashly = self.conn.execute("SELECT id FROM activity WHERE name='Dashly' AND person_id=?", (pid,)).fetchone()["id"]
+        # the list shows every Dashly job without proof
+        html = self.c.get(f"/proof/activity/{dashly}?month=2026-10").get_data(as_text=True)
+        self.assertIn("5 jobs without proof", html)
+        e = self.conn.execute("SELECT * FROM entry WHERE activity_id=? AND start_date='2026-10-16'", (dashly,)).fetchone()
+        html = self.c.get(f"/proof/entry/{e['id']}").get_data(as_text=True)
+        self.assertIn("October 16, 2026", html)
+        self.assertIn('name="entry_id"', html)
+        # a photo that says $85 for a job she logged as $46: Kept points out the difference
+        data = {"photo_file": (io.BytesIO((SAMPLES / "proof_dashly_oct16.png").read_bytes()), "d.png"), "entry_id": str(e["id"])}
+        r = self.c.post("/add/photo", data=data, content_type="multipart/form-data")
+        html = self.c.get(r.headers["Location"]).get_data(as_text=True)
+        self.assertIn("Proof for:", html)
+        self.assertIn("match what you logged", html)
+        doc_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
+        before = len(self.conn.execute("SELECT 1 FROM entry WHERE activity_id=? AND superseded_by IS NULL", (dashly,)).fetchall())
+        self.c.post(f"/review/{doc_id}", data={"action": "save", "activity_id": dashly, "start": "2026-10-16",
+                                               "end": "2026-10-16", "hours": "5", "income": "85"})
+        after = len(self.conn.execute("SELECT 1 FROM entry WHERE activity_id=? AND superseded_by IS NULL", (dashly,)).fetchall())
+        self.assertEqual(before, after)  # the typed job was replaced, not doubled
+        # now the calendar day offers the download
+        html = self.c.get("/calendar?month=2026-10&day=16").get_data(as_text=True)
+        self.assertIn(f"/files/{doc_id}?dl=1", html)
+        r = self.c.get(f"/files/{doc_id}?dl=1")
+        self.assertIn("attachment", r.headers["Content-Disposition"])
+        self.assertIn("proof-Dashly-2026-10-16", r.headers["Content-Disposition"])
+
+    def test_5d_one_missing_goes_straight_to_its_page(self):
+        self.c.post("/demo/start")
+        pid = self.conn.execute("SELECT value FROM settings WHERE key='active_person'").fetchone()["value"]
+        cm = self.conn.execute("SELECT id FROM activity WHERE name='Corner Market' AND person_id=?", (pid,)).fetchone()["id"]
+        r = self.c.get(f"/proof/activity/{cm}?month=2026-10")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/proof/entry/", r.headers["Location"])
+
+    def test_5e_photo_without_values_uses_the_log(self):
+        from unittest import mock
+        from kept.capture import ocr
+        self.c.post("/demo/start")
+        pid = self.conn.execute("SELECT value FROM settings WHERE key='active_person'").fetchone()["value"]
+        e = self.conn.execute("SELECT e.* FROM entry e JOIN activity a ON a.id=e.activity_id WHERE a.name='Corner Market' "
+                              "AND e.person_id=?", (pid,)).fetchone()
+        with mock.patch.object(ocr, "available", return_value=False):
+            data = {"photo_cam": (io.BytesIO((SAMPLES / "sample_pay_stub.png").read_bytes()), "n.png"), "entry_id": str(e["id"])}
+            r = self.c.post("/add/photo", data=data, content_type="multipart/form-data")
+            html = self.c.get(r.headers["Location"]).get_data(as_text=True)
+        self.assertIn("From your log", html)
+        self.assertIn('value="2026-10-08"', html)
+
     def test_6_pdfs(self):
         self.c.post("/demo/start")
         self.c.post("/demo/go", data={"to": "2026-11-01"})
