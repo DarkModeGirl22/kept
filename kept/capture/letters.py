@@ -40,7 +40,7 @@ EXPLAIN = {
 }
 
 DEADLINE_RX = re.compile(r"(respond|return|reply|send[^.\n]{0,30}?)\s*(?:it\s+)?(?:to us\s+)?(by|before|no later than)\b|"
-                         r"\b(due( date)?|deadline)\b[:\s]", re.I)
+                         r"\b(due date|deadline)\b[:\s]|\bdue\s*(:|by\b|on\b)", re.I)   # not "due for renewal"
 
 
 def classify(text: str) -> str:

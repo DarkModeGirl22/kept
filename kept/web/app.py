@@ -336,6 +336,15 @@ def create_app(conn=None) -> Flask:
     def _process_upload(path: Path, name: str, is_letter=False, activity_id=None, for_entry=None):
         doc_id, err = S.store_upload(g.conn, g.person["id"], path, name)
         if err == "duplicate":
+            prev = g.conn.execute("SELECT status FROM document WHERE id=?", (doc_id,)).fetchone()
+            if prev["status"] == "needs_review" and for_entry:
+                # not saved yet: the same photo, now offered for another job, is checked against that job
+                e = g.conn.execute("SELECT * FROM entry WHERE id=? AND person_id=?", (for_entry, g.person["id"])).fetchone()
+                if e:
+                    g.conn.execute("UPDATE document SET for_entry=?, activity_id=? WHERE id=?",
+                                   (for_entry, e["activity_id"], doc_id))
+                    g.conn.commit()
+                    return redirect(url_for("review_doc", doc_id=doc_id))
             flash("You already added this exact photo. It's counted once.")
             return redirect(url_for("review_doc", doc_id=doc_id))
         if err:
@@ -620,7 +629,8 @@ def create_app(conn=None) -> Flask:
 
     @app.get("/letters/<int:lid>")
     def letter_page(lid):
-        L = g.conn.execute("SELECT * FROM letter WHERE id=? AND person_id=?", (lid, g.person["id"])).fetchone()
+        L = g.conn.execute("SELECT l.*, d.filename FROM letter l LEFT JOIN document d ON d.id=l.document_id "
+                           "WHERE l.id=? AND l.person_id=?", (lid, g.person["id"])).fetchone()
         if not L:
             abort(404)
         c = ctx()

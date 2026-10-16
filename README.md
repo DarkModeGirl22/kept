@@ -80,7 +80,7 @@ The sample documents in `samples/` are fictional and marked SAMPLE.
 
 ## Tests
 
-`python -m unittest discover tests` runs 76 tests: the rules (thresholds, income path, seasonal average, pay periods across months, duplicates, months checked, deadlines, exemptions), reading (text, photos with Tesseract, letters, the AI's answers being checked), the agent (the whole demo story, weekly limits, modes) and every screen.
+`python -m unittest discover tests` runs 77 tests: the rules (thresholds, income path, seasonal average, pay periods across months, duplicates, months checked, deadlines, exemptions), reading (text, photos with Tesseract, letters, the AI's answers being checked), the agent (the whole demo story, weekly limits, modes) and every screen.
 
 ## What's live and what's planned
 
@@ -98,7 +98,7 @@ kept/services.py          saving entries and documents, proof, sign-offs
 kept/pdfs.py              printable reporting log, volunteer page, proof packet
 kept/web/                 the app (Flask) and its screens
 kept/demo.py              Keisha's month
-tests/                    76 tests
+tests/                    77 tests
 ```
 
 ## Sources

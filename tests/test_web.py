@@ -116,16 +116,24 @@ class Web(unittest.TestCase):
         html = self.c.get(f"/proof/entry/{e['id']}").get_data(as_text=True)
         self.assertIn("October 16, 2026", html)
         self.assertIn('name="entry_id"', html)
-        # a photo that says $85 for a job she logged as $46: Kept points out the difference
+        # first given to the wrong day (the Oct 20 class): Kept points out the dates, nothing is saved
+        cls_e = self.conn.execute("SELECT e.* FROM entry e JOIN activity a ON a.id=e.activity_id WHERE a.person_id=? "
+                                  "AND a.name='Adult Learning Center' AND e.start_date='2026-10-20'", (pid,)).fetchone()
+        data = {"photo_file": (io.BytesIO((SAMPLES / "proof_dashly_oct16.png").read_bytes()), "d.png"), "entry_id": str(cls_e["id"])}
+        r = self.c.post("/add/photo", data=data, content_type="multipart/form-data")
+        html = self.c.get(r.headers["Location"]).get_data(as_text=True)
+        self.assertIn("the photo says <strong>Oct 16</strong>, you logged <strong>Oct 20</strong>", html)
+        # then the same photo from the right day: checked against Oct 16, not refused as a duplicate
+        # a photo that says $64 for a job she logged as $46: Kept points out the difference
         data = {"photo_file": (io.BytesIO((SAMPLES / "proof_dashly_oct16.png").read_bytes()), "d.png"), "entry_id": str(e["id"])}
         r = self.c.post("/add/photo", data=data, content_type="multipart/form-data")
         html = self.c.get(r.headers["Location"]).get_data(as_text=True)
-        self.assertIn("Proof for:", html)
-        self.assertIn("match what you logged", html)
+        self.assertIn("<strong>Proof for:</strong> Dashly, Oct 16", html)
+        self.assertIn("the photo says <strong>$64.00</strong>, you logged <strong>$46.00</strong>", html)
         doc_id = int(r.headers["Location"].rstrip("/").split("/")[-1])
         before = len(self.conn.execute("SELECT 1 FROM entry WHERE activity_id=? AND superseded_by IS NULL", (dashly,)).fetchall())
         self.c.post(f"/review/{doc_id}", data={"action": "save", "activity_id": dashly, "start": "2026-10-16",
-                                               "end": "2026-10-16", "hours": "5", "income": "85"})
+                                               "end": "2026-10-16", "hours": "3.5", "income": "64"})
         after = len(self.conn.execute("SELECT 1 FROM entry WHERE activity_id=? AND superseded_by IS NULL", (dashly,)).fetchall())
         self.assertEqual(before, after)  # the typed job was replaced, not doubled
         # now the calendar day offers the download

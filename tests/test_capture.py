@@ -120,6 +120,17 @@ class Letters(AIOff):
         self.assertEqual(r["respond_by"], date(2026, 12, 23))
         self.assertEqual(r["months"], ["2026-10", "2026-11"])
 
+    def test_pdf_letter_text_layer(self):
+        from kept.services import _pdf_text
+        text, ok = _pdf_text(ROOT / "samples" / "sample_renewal_letter.pdf")
+        self.assertTrue(ok)
+        r = letters.read_letter(text, date(2026, 10, 20))
+        self.assertEqual(r["kind"], "renewal")
+        self.assertEqual(r["letter_date"], date(2026, 10, 19))
+        # "due for renewal on January 1" is not the deadline; "respond by December 31" is
+        self.assertEqual(r["respond_by"], date(2026, 12, 31))
+        self.assertEqual(r["months"], ["2026-10", "2026-11", "2026-12"])
+
     def test_noncompliance(self):
         r = letters.read_letter("We could not verify your hours. Your coverage will end.", date(2026, 11, 25))
         self.assertEqual(r["kind"], "noncompliance")

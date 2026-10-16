@@ -168,6 +168,16 @@ def supersede_with_statement(conn, pid, activity_id, start: date, end: date, new
 
 # ---------------------------------------------------------------- documents
 
+def _pdf_text(path: Path) -> tuple[str, bool]:
+    """A PDF made by a computer already carries its text: read it directly. Scanned PDFs have none."""
+    try:
+        from pypdf import PdfReader
+        text = "\n".join((pg.extract_text() or "") for pg in PdfReader(str(path)).pages[:5])
+    except Exception:
+        return "", False
+    return text, len(text.strip()) >= 20
+
+
 def store_upload(conn, pid, src_path: Path, original_name: str) -> tuple[int | None, str | None]:
     """Save a photo, refuse exact duplicates, read its text. Returns (document_id, error)."""
     raw = Path(src_path).read_bytes()
@@ -187,7 +197,7 @@ def store_upload(conn, pid, src_path: Path, original_name: str) -> tuple[int | N
             shutil.copy(src_path, dest)
         else:
             return None, "unreadable"
-    text, ok = ("", False) if name.endswith(".pdf") else ocr.read_text(dest)
+    text, ok = _pdf_text(dest) if name.endswith(".pdf") else ocr.read_text(dest)
     cur = conn.execute(
         "INSERT INTO document(person_id,filename,original_name,sha256,ocr_text,ocr_ok,created_at) VALUES(?,?,?,?,?,?,?)",
         (pid, name, original_name, sha, text, int(ok), db.now_iso()))

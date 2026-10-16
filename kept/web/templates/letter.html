@@ -53,5 +53,5 @@
   </form>
 </details>
 
-{% if L.document_id %}<h2>The letter</h2><img class="docimg" src="{{ url_for('file', doc_id=L.document_id) }}" alt="Photo of the letter">{% endif %}
+{% if L.document_id %}<h2>The letter</h2>{% if L.filename and L.filename.endswith('.pdf') %}<p><a class="btn secondary" href="{{ url_for('file', doc_id=L.document_id) }}" target="_blank">Open the letter (PDF)</a></p>{% else %}<img class="docimg" src="{{ url_for('file', doc_id=L.document_id) }}" alt="Photo of the letter">{% endif %}{% endif %}
 {% endblock %}
