@@ -1,5 +1,9 @@
 # Kept
 
+[![Watch the Kept demo](https://img.youtube.com/vi/N7mMnSc8it8/hqdefault.jpg)](https://www.youtube.com/watch?v=N7mMnSc8it8)
+
+**▶ [Watch the Kept demo on YouTube](https://www.youtube.com/watch?v=N7mMnSc8it8)**
+
 *Medicaid is the public health insurance for people with low incomes in the United States. Kept is built for the US rule that starts in 2027, and for the people it hits hardest: low-income workers whose hours change from week to week, like delivery drivers, cash jobs, volunteers and people with several small jobs.*
 
 **Try it online:** https://kept-hlcc.onrender.com (open Keisha's demo). It runs on a free server, so the first load can take up to a minute if nobody has visited recently.
